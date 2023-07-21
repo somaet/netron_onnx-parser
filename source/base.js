@@ -9,6 +9,7 @@ base.Int64 = class Int64 {
     }
 
     static create(value) {
+        // value가 숫자가 아닌 경우, 0을 나타내는 Int64 객체를 반환합니다.
         if (isNaN(value)) {
             return base.Int64.zero;
         }

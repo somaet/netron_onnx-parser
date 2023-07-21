@@ -1,7 +1,7 @@
 
 const electron = require('electron');
 const updater = require('electron-updater');
-const fs = require('fs');
+const fs = require('fs'); // 파일 시스템 
 const os = require('os');
 const path = require('path');
 const process = require('process');
@@ -13,7 +13,6 @@ var app = {};
 app.Application = class {
 
     constructor() {
-        // package.json 파일의 경로를 가져옵니다.
         this._views = new app.ViewCollection(this);
         this._configuration = new app.ConfigurationService();
         this._menu = new app.MenuService(this._views);
@@ -22,21 +21,30 @@ app.Application = class {
     }
 
     start() {
+        // package.json 파일의 경로를 가져옵니다.
         const packageFile = path.join(path.dirname(__dirname), 'package.json');
+        // package.json 파일의 내용을 동기적으로 읽어옵니다.
         const packageContent = fs.readFileSync(packageFile, 'utf-8');
+        // package.json 파일의 내용을 JSON 객체로 파싱하여 _package 변수에 저장합니다.
         this._package = JSON.parse(packageContent);
 
+        // 애플리케이션의 사용자 모델 ID를 설정합니다.
         electron.app.setAppUserModelId('com.lutzroeder.netron');
+        // 렌더러 프로세스 재사용을 허용합니다.
         electron.app.allowRendererProcessReuse = true;
-
+        // 애플리케이션이 이미 실행 중인 경우, 새로운 인스턴스를 시작하지 않고 종료합니다.
         if (!electron.app.requestSingleInstanceLock()) {
             electron.app.quit();
             return;
         }
 
+        // 두 번째 인스턴스가 시작될 때의 이벤트 핸들러를 설정합니다.
         electron.app.on('second-instance', (event, commandLine, workingDirectory) => {
+            // 현재 작업 디렉토리를 저장하고, 새로운 작업 디렉토리로 변경합니다.
             const currentDirectory = process.cwd();
             process.chdir(workingDirectory);
+
+            // 명령줄을 파싱합니다.
             const open = this._parseCommandLine(commandLine);
             process.chdir(currentDirectory);
             if (!open && !this._views.empty) {
@@ -126,21 +134,32 @@ app.Application = class {
     }
 
     _parseCommandLine(argv) {
+        // open 변수를 false로 초기화합니다.
         let open = false;
+        // argv의 길이가 1보다 큰 경우, 즉 인자가 하나 이상 주어진 경우에만 다음의 로직을 수행합니다.
         if (argv.length > 1) {
+            // argv의 첫 번째 인자를 제외한 나머지 인자들에 대해 반복합니다.
             for (const arg of argv.slice(1)) {
+                // 인자가 '-'로 시작하지 않고, 현재 디렉토리의 경로와도 일치하지 않는 경우에만 다음의 로직을 수행합니다.
                 if (!arg.startsWith('-') && arg !== path.dirname(__dirname)) {
+                    // 인자의 확장자를 소문자로 변환합니다.
                     const extension = path.extname(arg).toLowerCase();
+                    // 확장자가 비어있지 않고, '.js'가 아니며, 해당 경로의 파일이나 디렉토리가 실제로 존재하는 경우에만 다음의 로직을 수행합니다.
                     if (extension !== '' && extension !== '.js' && fs.existsSync(arg)) {
+                        // 해당 경로의 파일이나 디렉토리의 상태를 가져옵니다.
                         const stat = fs.statSync(arg);
+                        // 해당 경로가 파일이나 디렉토리를 가리키는 경우에만 다음의 로직을 수행합니다.
                         if (stat.isFile() || stat.isDirectory()) {
+                            // 해당 경로를 엽니다.
                             this._openPath(arg);
+                            // open 변수를 true로 설정합니다.
                             open = true;
                         }
                     }
                 }
             }
         }
+        // open 변수를 반환합니다.
         return open;
     }
 
@@ -167,8 +186,11 @@ app.Application = class {
     }
 
     _open(path) {
+        // path가 주어지면 그것을 배열로 변환하고, 그렇지 않으면 빈 배열을 생성합니다.
         let paths = path ? [ path ] : [];
+        // paths 배열이 비어있는 경우, 즉 path가 주어지지 않은 경우에만 다음의 로직을 수행합니다.
         if (paths.length === 0) {
+            // 지원하는 파일 확장자를 가져옵니다.
             const extensions = new base.Metadata().extensions;
             const showOpenDialogOptions = {
                 properties: [ 'openFile' ],
