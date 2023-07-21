@@ -13,6 +13,7 @@ var app = {};
 app.Application = class {
 
     constructor() {
+        // package.json 파일의 경로를 가져옵니다.
         this._views = new app.ViewCollection(this);
         this._configuration = new app.ConfigurationService();
         this._menu = new app.MenuService(this._views);
