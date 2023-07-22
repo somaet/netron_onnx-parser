@@ -46,7 +46,9 @@ app.Application = class {
 
             // 명령줄을 파싱합니다.
             const open = this._parseCommandLine(commandLine);
+            // 작업 디렉토리를 원래대로 복구합니다.
             process.chdir(currentDirectory);
+            // 뷰가 존재하지 않는 경우, 첫 번째 뷰를 복원합니다.
             if (!open && !this._views.empty) {
                 const view = this._views.first();
                 if (view) {
@@ -54,22 +56,27 @@ app.Application = class {
                 }
             }
         });
+        // 'get-environment' 이벤트 핸들러: 현재 애플리케이션의 환경 정보를 반환합니다.
         electron.ipcMain.on('get-environment', (event) => {
             event.returnValue = this.environment;
         });
+        // 'get-configuration' 이벤트 핸들러: 요청된 설정의 값을 반환합니다.
         electron.ipcMain.on('get-configuration', (event, obj) => {
             event.returnValue = this._configuration.has(obj.name) ? this._configuration.get(obj.name) : undefined;
         });
+        // 'set-configuration' 이벤트 핸들러: 주어진 설정 값을 저장하고 설정을 업데이트합니다.
         electron.ipcMain.on('set-configuration', (event, obj) => {
             this._configuration.set(obj.name, obj.value);
             this._configuration.save();
             event.returnValue = null;
         });
+        // 'delete-configuration' 이벤트 핸들러: 주어진 설정을 삭제하고 설정을 업데이트합니다.
         electron.ipcMain.on('delete-configuration', (event, obj) => {
             this._configuration.delete(obj.name);
             this._configuration.save();
             event.returnValue = null;
         });
+        // 'drop-paths' 이벤트 핸들러: 주어진 경로의 파일 또는 디렉토리를 엽니다.
         electron.ipcMain.on('drop-paths', (event, data) => {
             const paths = data.paths.filter((path) => {
                 if (fs.existsSync(path)) {
@@ -81,40 +88,43 @@ app.Application = class {
             this._dropPaths(event.sender, paths);
             event.returnValue = null;
         });
+        // 'show-message-box' 이벤트 핸들러: 메시지 박스를 표시합니다.
         electron.ipcMain.on('show-message-box', (event, options) => {
             const owner = event.sender.getOwnerBrowserWindow();
             event.returnValue = electron.dialog.showMessageBoxSync(owner, options);
         });
+        // 'show-save-dialog' 이벤트 핸들러: 저장 대화 상자를 표시합니다.
         electron.ipcMain.on('show-save-dialog', (event, options) => {
             const owner = event.sender.getOwnerBrowserWindow();
             event.returnValue = electron.dialog.showSaveDialogSync(owner, options);
         });
+        // 'execute' 이벤트 핸들러: 주어진 명령을 실행합니다.
         electron.ipcMain.on('execute', (event, data) => {
             const owner = event.sender.getOwnerBrowserWindow();
             this.execute(data.name, data.value || null, owner);
             event.returnValue = null;
         });
-
+        // 애플리케이션이 완전히 로딩될 준비가 되면 파일을 엽니다.
         electron.app.on('will-finish-launching', () => {
             electron.app.on('open-file', (event, path) => {
                 this._openPath(path);
             });
         });
-
+        // 애플리케이션이 준비되면 _ready 메소드를 호출합니다.
         electron.app.on('ready', () => {
             this._ready();
         });
-
+        // 모든 윈도우가 닫히면, macOS를 제외한 모든 플랫폼에서 애플리케이션을 종료합니다.
         electron.app.on('window-all-closed', () => {
             if (process.platform !== 'darwin') {
                 electron.app.quit();
             }
         });
-
+        // 애플리케이션이 종료될 때 설정을 저장합니다.
         electron.app.on('will-quit', () => {
             this._configuration.save();
         });
-
+        // 명령줄을 파싱하고 업데이트를 확인합니다.
         this._parseCommandLine(process.argv);
         this._checkForUpdates();
     }
@@ -192,27 +202,35 @@ app.Application = class {
         if (paths.length === 0) {
             // 지원하는 파일 확장자를 가져옵니다.
             const extensions = new base.Metadata().extensions;
+            // 파일 열기 대화 상자의 옵션을 설정합니다.
             const showOpenDialogOptions = {
                 properties: [ 'openFile' ],
                 filters: [ { name: 'All Model Files', extensions: extensions } ]
             };
+            // 파일 열기 대화 상자를 동기적으로 표시하고, 사용자가 선택한 파일의 경로를 가져옵니다.
             paths = electron.dialog.showOpenDialogSync(showOpenDialogOptions);
         }
+        // paths가 배열이고, 그 길이가 0보다 큰 경우, 즉 사용자가 하나 이상의 파일을 선택한 경우에만 다음의 로직을 수행합니다.
         if (Array.isArray(paths) && paths.length > 0) {
             for (const path of paths) {
+                // 각 파일의 경로를 엽니다.
                 this._openPath(path);
             }
         }
     }
 
     _openPath(path) {
+        // 만약 _openQueue가 존재하면, path를 _openQueue에 추가하고 함수를 종료합니다.
         if (this._openQueue) {
             this._openQueue.push(path);
             return;
         }
+        // path가 존재하고 길이가 0보다 큰 경우, 다음 로직을 수행합니다.
         if (path && path.length > 0) {
+            // path가 실제로 존재하는지 확인합니다.
             const exists = fs.existsSync(path);
             if (exists) {
+                // path의 상태를 확인합니다. (파일인지 디렉토리인지)
                 const stat = fs.statSync(path);
                 if (stat.isFile() || stat.isDirectory()) {
                     const views = Array.from(this._views.views);
@@ -226,9 +244,11 @@ app.Application = class {
                     if (view == null) {
                         view = this._views.openView();
                     }
+                    // view를 이용하여 path를 엽니다.
                     view.open(path);
                 }
             }
+            // 최근 열린 파일 목록을 업데이트합니다. path가 존재하지 않는다면 undefined를 전달합니다.
             this._updateRecents(exists ? path : undefined);
         }
     }
